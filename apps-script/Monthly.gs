@@ -21,6 +21,8 @@ const MONTHLY = {
   FIXED: ['Месяц', 'Дата с', 'Дата по', 'Обновлено'],
   MAIN_RANGE: 'D2:E60',
   MAX_FAILS: 3,
+  COSTS_SHEET: 'Себестоимость',
+  DEFAULT_COST: 100,
   PROP_FROM: 'MONTHLY_SAVED_FROM',
   PROP_TO: 'MONTHLY_SAVED_TO',
   PROP_FAILS: 'MONTHLY_FAILS_'
@@ -127,18 +129,58 @@ function installOzonRetry_() {
  * Из-за них отчёт не считает прибыль месяца.
  */
 function missingCostSkus_(values) {
-  if (!values.length) return '';
+  return missingCostRows_(values).map(function (r) { return r[0]; }).join(', ');
+}
+
+/** [[артикул, название], …] товаров с пометкой «Нет себестоимости» в отчёте. */
+function missingCostRows_(values) {
+  if (!values.length) return [];
   const header = values[0].map(function (h) { return String(h).trim().toLowerCase(); });
   const iSku = header.indexOf('артикул');
   const iComment = header.indexOf('комментарий');
-  if (iSku === -1 || iComment === -1) return '';
+  const iName = header.findIndex(function (h) { return h.indexOf('название') === 0; });
+  if (iSku === -1 || iComment === -1) return [];
   const result = [];
+  const seen = {};
   for (let i = 1; i < values.length; i++) {
     const sku = String(values[i][iSku] || '').trim();
     const comment = String(values[i][iComment] || '').toLowerCase();
-    if (sku && comment.indexOf('нет себестоимости') !== -1 && result.indexOf(sku) === -1) result.push(sku);
+    if (sku && comment.indexOf('нет себестоимости') !== -1 && !seen[sku]) {
+      seen[sku] = true;
+      result.push([sku, iName === -1 ? '' : String(values[i][iName] || '').trim()]);
+    }
   }
-  return result.join(', ');
+  return result;
+}
+
+/**
+ * Что записать в лист «Себестоимость» для товаров без цены (решение Марка 23.11.2026: такие товары = 100 ₽).
+ * Есть строка, но цена пустая/не число («.», «146,00%») → заменить на defaultCost. Нет строки → дописать.
+ * Строки с нормальной ценой не трогаем. row — номер строки листа (с 1).
+ */
+function defaultCostPlan_(costValues, missing, defaultCost) {
+  const updates = [];
+  const appends = [];
+  const index = {};
+  for (let i = 1; i < costValues.length; i++) {
+    const sku = String(costValues[i][0] || '').trim();
+    if (sku && !(sku in index)) index[sku] = i;
+  }
+  const isPrice = function (v) {
+    if (typeof v === 'number') return isFinite(v) && v > 0;
+    const t = String(v || '').trim();
+    return /^\d+([.,]\d+)?$/.test(t.replace(/\s/g, '')) && Number(t.replace(/\s/g, '').replace(',', '.')) > 0;
+  };
+  missing.forEach(function (item) {
+    const sku = item[0];
+    if (sku in index) {
+      if (!isPrice(costValues[index[sku]][2])) updates.push({ row: index[sku] + 1, value: defaultCost });
+    } else {
+      appends.push([sku, (item[1] || sku) + ' (себестоимость ' + defaultCost + ' ₽ по умолчанию)', defaultCost]);
+      index[sku] = -1;
+    }
+  });
+  return { updates: updates, appends: appends };
 }
 
 /* ---------- Работа с таблицей ---------- */
@@ -246,11 +288,19 @@ function recalcMonth_(key) {
   new ReportBuilder().build();
   SpreadsheetApp.flush();
 
+  // Товары без себестоимости получают 100 ₽ в листе «Себестоимость», отчёт строится заново — иначе прибыль не считается.
+  const reportSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Отчет_по_товарам');
+  const missing = reportSheet ? missingCostRows_(reportSheet.getDataRange().getDisplayValues()) : [];
+  if (missing.length && applyDefaultCosts_(missing)) {
+    logMessage('Помесячно: себестоимость ' + MONTHLY.DEFAULT_COST + ' ₽ по умолчанию', { month: key, skus: missing.map(function (r) { return r[0]; }).join(', ') });
+    new ReportBuilder().build();
+    SpreadsheetApp.flush();
+  }
+
   const rows = main.getRange(MONTHLY.MAIN_RANGE).getValues()
     .filter(function (r) { return String(r[0] || '').trim(); });
 
-  const report = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Отчет_по_товарам');
-  rows.push(['Нет себестоимости (артикулы)', report ? missingCostSkus_(report.getDataRange().getDisplayValues()) : '']);
+  rows.push(['Себестоимость 100 ₽ по умолчанию (артикулы)', missing.map(function (r) { return r[0]; }).join(', ')]);
 
   writeMonthRow_(key, bounds, rows);
   logMessage('Помесячно: месяц ' + key + ' записан');
@@ -296,6 +346,19 @@ function writeMonthRow_(key, bounds, rows) {
   if (sheet.getLastRow() > 2) {
     sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).sort(1);
   }
+}
+
+/** Пишет 100 ₽ товарам без себестоимости. Возвращает true, если что-то изменилось. */
+function applyDefaultCosts_(missing) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(MONTHLY.COSTS_SHEET);
+  if (!sheet) return false;
+  const plan = defaultCostPlan_(sheet.getDataRange().getValues(), missing, MONTHLY.DEFAULT_COST);
+  plan.updates.forEach(function (u) { sheet.getRange(u.row, 3).setValue(u.value); });
+  if (plan.appends.length) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, plan.appends.length, 3).setValues(plan.appends);
+  }
+  SpreadsheetApp.flush();
+  return plan.updates.length + plan.appends.length > 0;
 }
 
 function monthlySheet_() {
@@ -375,5 +438,5 @@ function notify_(text) {
 
 // Для тестов (node --test apps-script/). В Google Apps Script этого объекта нет — строка ничего не делает.
 if (typeof module !== 'undefined') {
-  module.exports = { monthsBetween_, lastClosedMonth_, monthBounds_, mergeHeader_, findValue_, withOzonRetry_, missingCostSkus_ };
+  module.exports = { monthsBetween_, lastClosedMonth_, monthBounds_, mergeHeader_, findValue_, withOzonRetry_, missingCostSkus_, missingCostRows_, defaultCostPlan_ };
 }

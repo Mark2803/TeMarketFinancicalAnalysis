@@ -82,3 +82,25 @@ test("missingCostSkus_: артикулы с пометкой «Нет себес
   assert.equal(m.missingCostSkus_(report), "CH-ST-GR-040, CH-PU-FYC-250");
   assert.equal(m.missingCostSkus_([report[0], report[2]]), "");
 });
+
+test("defaultCostPlan_: пустую/ошибочную цену заменяет на 100, отсутствующий артикул дописывает", () => {
+  const costs = [
+    ["Артикул", "Наименование", "Себестоимость"],
+    ["CH-ST-GR-040", "Шан Тует", "."],
+    ["ACH-FE-XY-50", "Фэн Хуан", "192,9"]
+  ];
+  const plan = m.defaultCostPlan_(costs, [["CH-ST-GR-040", "Шан Тует 40"], ["CH-PU-FYC-250", "Fu Yuan 250"]], 100);
+  assert.deepEqual(JSON.parse(JSON.stringify(plan.updates)), [{ row: 2, value: 100 }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(plan.appends)), [["CH-PU-FYC-250", "Fu Yuan 250 (себестоимость 100 ₽ по умолчанию)", 100]]);
+  const none = m.defaultCostPlan_(costs, [["ACH-FE-XY-50", "x"]], 100);
+  assert.equal(none.updates.length + none.appends.length, 0);
+});
+
+test("missingCostRows_: артикул и название товаров без себестоимости", () => {
+  const report = [
+    ["Артикул", "Название товара", "Комментарий"],
+    ["CH-ST-GR-040", "Шан Тует 40", "Товарные услуги | Нет себестоимости"],
+    ["ACH-FE-XY-50", "Фэн Хуан", "Товарные услуги"]
+  ];
+  assert.deepEqual(JSON.parse(JSON.stringify(m.missingCostRows_(report))), [["CH-ST-GR-040", "Шан Тует 40"]]);
+});
