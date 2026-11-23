@@ -122,6 +122,25 @@ function installOzonRetry_() {
   OzonApi.prototype.__monthlyRetry = true;
 }
 
+/**
+ * Артикулы из «Отчет_по_товарам» с пометкой «Нет себестоимости» в комментарии — через запятую.
+ * Из-за них отчёт не считает прибыль месяца.
+ */
+function missingCostSkus_(values) {
+  if (!values.length) return '';
+  const header = values[0].map(function (h) { return String(h).trim().toLowerCase(); });
+  const iSku = header.indexOf('артикул');
+  const iComment = header.indexOf('комментарий');
+  if (iSku === -1 || iComment === -1) return '';
+  const result = [];
+  for (let i = 1; i < values.length; i++) {
+    const sku = String(values[i][iSku] || '').trim();
+    const comment = String(values[i][iComment] || '').toLowerCase();
+    if (sku && comment.indexOf('нет себестоимости') !== -1 && result.indexOf(sku) === -1) result.push(sku);
+  }
+  return result.join(', ');
+}
+
 /* ---------- Работа с таблицей ---------- */
 
 /** Пункт меню: заполнить все месяцы с января 2026 и включить ежемесячный автозапуск. */
@@ -230,6 +249,9 @@ function recalcMonth_(key) {
   const rows = main.getRange(MONTHLY.MAIN_RANGE).getValues()
     .filter(function (r) { return String(r[0] || '').trim(); });
 
+  const report = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Отчет_по_товарам');
+  rows.push(['Нет себестоимости (артикулы)', report ? missingCostSkus_(report.getDataRange().getDisplayValues()) : '']);
+
   writeMonthRow_(key, bounds, rows);
   logMessage('Помесячно: месяц ' + key + ' записан');
 }
@@ -266,7 +288,9 @@ function writeMonthRow_(key, bounds, rows) {
   sheet.getRange(rowNumber, 1, 1, row.length).setValues([row]);
   sheet.getRange(rowNumber, 2, 1, 2).setNumberFormat('dd.mm.yyyy');
   sheet.getRange(rowNumber, 4).setNumberFormat('dd.mm.yyyy hh:mm');
-  if (row.length > 4) sheet.getRange(rowNumber, 5, 1, row.length - 4).setNumberFormat('#,##0.00');
+  for (let c = 4; c < row.length; c++) {
+    if (typeof row[c] === 'number') sheet.getRange(rowNumber, c + 1).setNumberFormat('#,##0.00');
+  }
 
   // Строки по порядку месяцев.
   if (sheet.getLastRow() > 2) {
@@ -351,5 +375,5 @@ function notify_(text) {
 
 // Для тестов (node --test apps-script/). В Google Apps Script этого объекта нет — строка ничего не делает.
 if (typeof module !== 'undefined') {
-  module.exports = { monthsBetween_, lastClosedMonth_, monthBounds_, mergeHeader_, findValue_, withOzonRetry_ };
+  module.exports = { monthsBetween_, lastClosedMonth_, monthBounds_, mergeHeader_, findValue_, withOzonRetry_, missingCostSkus_ };
 }
