@@ -48,3 +48,25 @@ test("findValue_: по началу названия без регистра, и
   assert.equal(m.findValue_([], "Выручка"), "");
   assert.equal(m.findValue_([["Выручка", ""]], "Выручка"), "");
 });
+
+test("withOzonRetry_: на 429 ждёт и повторяет, другие ошибки — сразу", () => {
+  const sleeps = [];
+  const ctx2 = { module: { exports: {} }, Utilities: { sleep: (ms) => sleeps.push(ms) } };
+  vm.createContext(ctx2);
+  vm.runInContext(readFileSync(new URL("./Monthly.gs", import.meta.url), "utf8"), ctx2);
+  const retry = ctx2.module.exports.withOzonRetry_;
+
+  let calls = 0;
+  const flaky = () => { calls++; if (calls < 3) throw new Error("Ошибка Ozon API: 429\n{}"); return "ok"; };
+  assert.equal(retry(flaky), "ok");
+  assert.equal(calls, 3);
+  assert.ok(sleeps.length >= 2 && sleeps.every((ms) => ms > 0));
+
+  let other = 0;
+  assert.throws(() => retry(() => { other++; throw new Error("Ошибка Ozon API: 400"); }), /400/);
+  assert.equal(other, 1);
+
+  let always = 0;
+  assert.throws(() => retry(() => { always++; throw new Error("Ошибка Ozon API: 429"); }), /429/);
+  assert.equal(always, 6);
+});

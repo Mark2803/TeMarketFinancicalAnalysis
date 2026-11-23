@@ -87,10 +87,49 @@ function findValue_(rows, name) {
   return '';
 }
 
+/**
+ * Повтор при ответе Ozon «слишком много запросов» (429): пауза 2, 4, 6, 8, 10 с — до 6 попыток.
+ * Остальные ошибки пробрасываются сразу.
+ */
+function withOzonRetry_(fn) {
+  const MAX = 6;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return fn();
+    } catch (error) {
+      const is429 = /Ozon API: 429/.test(String(error && error.message));
+      if (!is429 || attempt >= MAX) throw error;
+      Utilities.sleep(2000 * attempt);
+    }
+  }
+}
+
+/**
+ * Включает повтор для всех запросов к Ozon на время помесячного расчёта.
+ * Ваш файл OzonApi.gs не меняется: оборачиваем его метод post во время работы скрипта.
+ * Плюс пауза 0,3 с между запросами, чтобы реже упираться в лимит.
+ */
+function installOzonRetry_() {
+  if (typeof OzonApi === 'undefined' || OzonApi.prototype.__monthlyRetry) return;
+  const original = OzonApi.prototype.post;
+  OzonApi.prototype.post = function (path, payload) {
+    const self = this;
+    return withOzonRetry_(function () {
+      Utilities.sleep(300);
+      return original.call(self, path, payload);
+    });
+  };
+  OzonApi.prototype.__monthlyRetry = true;
+}
+
 /* ---------- Работа с таблицей ---------- */
 
 /** Пункт меню: заполнить все месяцы с января 2026 и включить ежемесячный автозапуск. */
 function startMonthlyBackfill() {
+  const props = PropertiesService.getScriptProperties();
+  Object.keys(props.getProperties()).forEach(function (k) {
+    if (k.indexOf(MONTHLY.PROP_FAILS) === 0) props.deleteProperty(k);
+  });
   ensureMonthlyTrigger_();
   scheduleContinue_(1000);
   notify_('Заполнение «Помесячно» запущено.\n\n' +
@@ -179,6 +218,7 @@ function recalcMonth_(key) {
   SpreadsheetApp.flush();
 
   logMessage('Помесячно: расчёт месяца ' + key);
+  installOzonRetry_();
 
   // Те же шаги, что «Обновить все данные и отчет», но без всплывающих окон.
   updateFinanceData();
@@ -311,5 +351,5 @@ function notify_(text) {
 
 // Для тестов (node --test apps-script/). В Google Apps Script этого объекта нет — строка ничего не делает.
 if (typeof module !== 'undefined') {
-  module.exports = { monthsBetween_, lastClosedMonth_, monthBounds_, mergeHeader_, findValue_ };
+  module.exports = { monthsBetween_, lastClosedMonth_, monthBounds_, mergeHeader_, findValue_, withOzonRetry_ };
 }
