@@ -1,0 +1,23 @@
+{
+  "name": "finance-analysis-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file=.env src/server.ts",
+    "build": "tsc",
+    "start": "node --env-file=.env dist/server.js",
+    "test": "node --test --experimental-strip-types src/months.test.ts"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
