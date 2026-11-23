@@ -1,0 +1,16 @@
+# Финансовая аналитика: https://tea-master-team.ru/management/finance/
+# Файл кладётся в /home/ivanc1539/conf/web/tea-master-team.ru/nginx.ssl.conf_finance
+# ^~ с более длинным адресом выигрывает у общего /management/ («Менеджмент») независимо от порядка файлов.
+
+location ^~ /management/finance/api/ {
+    proxy_pass http://127.0.0.1:3200;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+
+location ^~ /management/finance/ {
+    root /home/ivanc1539/finance-web;
+    add_header X-Robots-Tag "noindex, nofollow" always;
+    try_files $uri $uri/ /management/finance/index.html;
+}
