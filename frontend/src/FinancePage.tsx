@@ -1,24 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, loadMonths, type MonthRow } from "./api";
-import { deltaPercent, formatCount, formatMonth, formatRub } from "./format";
-import MetricChart from "./MetricChart";
+import { deltaPercent, formatMonth } from "./format";
+import FinanceChart from "./FinanceChart";
+import { SERIES } from "./chartOption.ts";
 
-type Metric = {
-  key: "revenue" | "sold" | "profit" | "commission";
-  title: string;
-  hint?: string;
-  color: string;
-  format: (n: number | null) => string;
-  /** Для комиссии рост — плохо. */
-  lowerIsBetter?: boolean;
-};
-
-const METRICS: Metric[] = [
-  { key: "revenue", title: "Выручка", color: "#2f5a34", format: formatRub },
-  { key: "sold", title: "Продано", hint: "предварительно", color: "#8a6a3b", format: formatCount },
-  { key: "profit", title: "Прибыль", hint: "предварительная", color: "#3f7f6a", format: formatRub },
-  { key: "commission", title: "Комиссия Ozon", color: "#c07a3a", format: formatRub, lowerIsBetter: true }
-];
 
 const sum = (values: Array<number | null>) =>
   values.some((v) => v !== null) ? values.reduce<number>((acc, v) => acc + (v ?? 0), 0) : null;
@@ -104,33 +89,37 @@ export default function FinancePage() {
       )}
 
       {selected.length > 0 && (
-        <div className="grid">
-          {METRICS.map((metric) => {
-            const values = selected.map((m) => m[metric.key]);
-            const last = values[values.length - 1] ?? null;
-            const prev = values.length > 1 ? values[values.length - 2] : null;
-            const delta = deltaPercent(last, prev);
-            const good = delta === null ? null : metric.lowerIsBetter ? delta <= 0 : delta >= 0;
-            return (
-              <section className="metric" key={metric.key}>
-                <div className="metric-head">
-                  <div>
-                    <h2>{metric.title}{metric.hint && <span className="hint"> · {metric.hint}</span>}</h2>
-                    <div className="total">{metric.format(sum(values))}</div>
-                    <div className="muted small">за {selected.length === 1 ? formatMonth(keys[0]) : `${formatMonth(keys[0])} — ${formatMonth(keys[keys.length - 1])}`}</div>
-                  </div>
+        <>
+          <div className="tiles">
+            {SERIES.map((metric) => {
+              const values = selected.map((m) => m[metric.key]);
+              const last = values[values.length - 1] ?? null;
+              const prev = values.length > 1 ? values[values.length - 2] : null;
+              const delta = deltaPercent(last, prev);
+              const lowerIsBetter = metric.key === "commission";
+              const good = delta === null ? null : lowerIsBetter ? delta <= 0 : delta >= 0;
+              const missing = values.filter((v) => v === null).length;
+              return (
+                <section className="tile" key={metric.key}>
+                  <h2><span className="dot" style={{ background: metric.color }} />{metric.name}</h2>
+                  <div className="total">{metric.format(sum(values))}</div>
+                  {metric.key === "profit" && missing > 0 && (
+                    <div className="muted small warn">не рассчитана в {missing} из {values.length} мес.: в таблице нет себестоимости части товаров</div>
+                  )}
                   {delta !== null && (
                     <div className={`delta ${good ? "up" : "down"}`} title="Последний месяц к предыдущему">
-                      {delta > 0 ? "▲" : delta < 0 ? "▼" : "•"} {Math.abs(delta).toLocaleString("ru-RU")}%
-                      <div className="small">{formatMonth(keys[keys.length - 1]).split(" ")[0].toLowerCase()} к пред.</div>
+                      {delta > 0 ? "▲" : delta < 0 ? "▼" : "•"} {Math.abs(delta).toLocaleString("ru-RU")}% <span className="small">{formatMonth(keys[keys.length - 1]).split(" ")[0].toLowerCase()} к пред.</span>
                     </div>
                   )}
-                </div>
-                <MetricChart months={keys} values={values} color={metric.color} format={metric.format} />
-              </section>
-            );
-          })}
-        </div>
+                </section>
+              );
+            })}
+          </div>
+          <section className="panel chart-panel">
+            <div className="muted small">за {selected.length === 1 ? formatMonth(keys[0]) : `${formatMonth(keys[0])} — ${formatMonth(keys[keys.length - 1])}`} · рубли — левая шкала, штуки — правая · клик по названию скрывает ряд</div>
+            <FinanceChart rows={selected} />
+          </section>
+        </>
       )}
 
       {updatedAt && <p className="muted small footer">Данные с сервера: {new Date(updatedAt).toLocaleString("ru-RU")}. Новый месяц добавляется 1-го числа.</p>}

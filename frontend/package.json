@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "node --test --experimental-strip-types src/format.test.ts"
+    "test": "node --test --experimental-strip-types src/format.test.ts src/chartOption.test.ts"
   },
   "dependencies": {
     "echarts": "^5.6.0",
