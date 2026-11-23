@@ -88,7 +88,7 @@ function findValue_(rows, name) {
 }
 
 /**
- * Повтор при ответе Ozon «слишком много запросов» (429): пауза 2, 4, 6, 8, 10 с — до 6 попыток.
+ * Повтор при ответе Ozon «слишком много запросов» (429): пауза 5, 10, 15, 20, 25 с — до 6 попыток.
  * Остальные ошибки пробрасываются сразу.
  */
 function withOzonRetry_(fn) {
@@ -99,7 +99,7 @@ function withOzonRetry_(fn) {
     } catch (error) {
       const is429 = /Ozon API: 429/.test(String(error && error.message));
       if (!is429 || attempt >= MAX) throw error;
-      Utilities.sleep(2000 * attempt);
+      Utilities.sleep(5000 * attempt);
     }
   }
 }
@@ -107,7 +107,7 @@ function withOzonRetry_(fn) {
 /**
  * Включает повтор для всех запросов к Ozon на время помесячного расчёта.
  * Ваш файл OzonApi.gs не меняется: оборачиваем его метод post во время работы скрипта.
- * Плюс пауза 0,3 с между запросами, чтобы реже упираться в лимит.
+ * Плюс пауза 1 с между запросами, чтобы реже упираться в лимит.
  */
 function installOzonRetry_() {
   if (typeof OzonApi === 'undefined' || OzonApi.prototype.__monthlyRetry) return;
@@ -115,7 +115,7 @@ function installOzonRetry_() {
   OzonApi.prototype.post = function (path, payload) {
     const self = this;
     return withOzonRetry_(function () {
-      Utilities.sleep(300);
+      Utilities.sleep(1000);
       return original.call(self, path, payload);
     });
   };
