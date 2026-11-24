@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, loadMonths, type MonthRow } from "./api";
 import { deltaPercent, formatMonth } from "./format";
 import FinanceChart from "./FinanceChart";
+import MonthRangePicker from "./MonthRangePicker";
 import { SERIES } from "./chartOption.ts";
 
 
@@ -56,16 +57,12 @@ export default function FinancePage() {
         </div>
         {months && months.length > 0 && (
           <div className="period">
-            <label>с
-              <select value={from} onChange={(e) => setFrom(e.target.value)}>
-                {months.map((m) => <option key={m.month} value={m.month} disabled={!!to && m.month > to}>{formatMonth(m.month)}</option>)}
-              </select>
-            </label>
-            <label>по
-              <select value={to} onChange={(e) => setTo(e.target.value)}>
-                {months.map((m) => <option key={m.month} value={m.month} disabled={!!from && m.month < from}>{formatMonth(m.month)}</option>)}
-              </select>
-            </label>
+            <MonthRangePicker
+              available={months.map((m) => m.month)}
+              from={from || months[0].month}
+              to={to || months[months.length - 1].month}
+              onChange={(f, t) => { setFrom(f); setTo(t); }}
+            />
             <button className="btn secondary" onClick={() => void load(true)} disabled={loading}>{loading ? "Обновляю…" : "Обновить"}</button>
           </div>
         )}
