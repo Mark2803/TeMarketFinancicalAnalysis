@@ -20,6 +20,9 @@
        .addToUi();
    ```
    Сохранить.
+   Также заменить целиком код файла `ReportBuilder.gs` на [`apps-script/ReportBuilder.gs`](apps-script/ReportBuilder.gs)
+   (исправлена ошибка «Расхождение детализации» на августе 2026; товар без себестоимости считается по 100 ₽).
+   Исходная версия Марка до правки — `apps-script/ReportBuilder.original.gs`.
 4. Вернуться в таблицу, обновить страницу (F5). В меню **Ozon** появятся новые пункты.
 5. **Ozon → Заполнить помесячно с января 2026**. Google попросит разрешения (Продолжить → аккаунт → «Дополнительные настройки» → «Перейти…» → Разрешить) — после этого нажать пункт ещё раз.
 6. Готово: скрипт сам переберёт месяцы (по одному в минуту, ~10–30 минут) и заполнит лист «Помесячно». Ход работы — на листе «Логи». В конце в A2:B2 вернутся ваши даты.
@@ -80,4 +83,4 @@ cd ../frontend && $U npm install --include=dev && $U npm run build && cp -r dist
 
 ## Тесты
 
-`node --test apps-script/monthly.test.mjs`, `cd backend && npm test`, `cd frontend && npm test`.
+`node --test apps-script/monthly.test.mjs apps-script/reportbuilder.test.mjs`, `cd backend && npm test`, `cd frontend && npm test`.

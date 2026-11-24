@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
 import * as echarts from "echarts/core";
-import { BarChart } from "echarts/charts";
+import { LineChart } from "echarts/charts";
 import { GridComponent, LegendComponent, TooltipComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import { buildChartOption, type ChartRow } from "./chartOption.ts";
 
-echarts.use([BarChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
+echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
 /** Общий график по месяцам (настройки — chartOption.ts). Клик по названию в легенде скрывает/показывает ряд. */
 export default function FinanceChart({ rows }: { rows: ChartRow[] }) {

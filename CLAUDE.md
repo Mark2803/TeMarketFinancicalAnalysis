@@ -10,12 +10,14 @@
   `updateFinanceData()`, `updateProductsFromFinance()`, `updateBuyoutsData()`, `new ReportBuilder().build()` (НЕ `updateAllData` — там окна `getUi().alert` и свой lock),
   читает `Главная!D:E` и пишет строку в лист **«Помесячно»**: `Месяц | Дата с | Дата по | Обновлено | показатели` (показатели — по названиям из D, новые — в конец).
   Один месяц за запуск, следующий — разовым триггером `monthlyContinue` через минуту. Ежемесячно — триггер `monthlyAuto` (1-е, 06:00 МСК). Даты Марка в A2:B2 сохраняются в Script Properties и возвращаются в конце.
-- Изменения в Monthly.gs Марк сам копирует в Apps Script (шаг 1 README).
+- `apps-script/ReportBuilder.gs` — копия файла отчёта из таблицы с правками Claude (24.11.2026): при неверном делении суммы между товарами одного начисления берутся части (выручка+комиссия+логистика+прочее), если они сходятся с суммой Ozon; товар без себестоимости = 100 ₽ (решение Марка). `ReportBuilder.original.gs` — версия Марка до правки. Тест — `reportbuilder.test.mjs`.
+- Изменения в Monthly.gs и ReportBuilder.gs Марк сам копирует в Apps Script (шаг 1 README).
+- График — линейный (решение Марка 24.11.2026): одна линия на показатель, штуки — пунктир на правой шкале.
 
 ## Устройство
 - `backend/` — Node 22 + Express 5, порт 3200, `GET /management/finance/api/months` (кэш 5 мин, `?refresh=1`). Читает «Помесячно» роботом Google (тот же ключ, что у «Себестоимости»), только чтение.
   Доступ — заголовок `X-Management-Token`, проверка по `management_access_tokens` в базе Чайного Маркета (`auth.ts` — копия из Managment).
-- `frontend/` — Vite + React 19 + ECharts, `base: /management/finance/`. 4 диаграммы: Выручка, Продано (шт.), Прибыль, Комиссия Ozon (модулем).
+- `frontend/` — Vite + React 19 + ECharts, `base: /management/finance/`. один линейный график + плитки итогов: Выручка, Прибыль, Комиссия Ozon (модулем), Продано (шт.).
 - nginx: `deploy/nginx.ssl.conf_finance` (`^~ /management/finance/…` выигрывает у общего `/management/` Менеджмента). Статика — `/home/ivanc1539/finance-web`, код — `/home/ivanc1539/finance-analysis`, служба `finance-backend`.
 - Карточка в админке — `MANAGEMENT_TOOLS` в TeaMarketV2 (`рефакторинг`), `backend/src/modules/moderator/management/management.routes.ts`.
 

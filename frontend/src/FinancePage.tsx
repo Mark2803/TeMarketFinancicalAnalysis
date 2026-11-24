@@ -116,7 +116,7 @@ export default function FinancePage() {
             })}
           </div>
           <section className="panel chart-panel">
-            <div className="muted small">за {selected.length === 1 ? formatMonth(keys[0]) : `${formatMonth(keys[0])} — ${formatMonth(keys[keys.length - 1])}`} · рубли — левая шкала, штуки — правая · клик по названию скрывает ряд</div>
+            <div className="muted small">за {selected.length === 1 ? formatMonth(keys[0]) : `${formatMonth(keys[0])} — ${formatMonth(keys[keys.length - 1])}`} · рубли — левая шкала, штуки (пунктир) — правая · клик по названию скрывает линию</div>
             <FinanceChart rows={selected} />
           </section>
         </>

@@ -23,10 +23,9 @@ export const SERIES: SeriesDef[] = [
   { key: "sold", name: "Продано, шт.", color: "#8a6a3b", axis: 1, format: formatCount }
 ];
 
-const NEGATIVE = "#a33a2b";
 
 /**
- * Один график: по каждому месяцу 4 столбца вплотную друг к другу, между месяцами — промежуток.
+ * Один линейный график: у каждого показателя своя линия, точка — месяц.
  * Рубли — левая шкала, штуки — правая (иначе 800 шт. потерялись бы рядом с 480 000 ₽).
  */
 export function buildChartOption(rows: ChartRow[]): Record<string, unknown> {
@@ -39,7 +38,7 @@ export function buildChartOption(rows: ChartRow[]): Record<string, unknown> {
     grid: { left: 8, right: 8, top: 44, bottom: 4, containLabel: true },
     tooltip: {
       trigger: "axis",
-      axisPointer: { type: "shadow" },
+      axisPointer: { type: "line", lineStyle: { color: "#b9ae97" } },
       formatter: (items: Array<{ dataIndex: number; seriesIndex: number; marker: string }>) => {
         const i = items[0]?.dataIndex ?? 0;
         const lines = items.map((it) => {
@@ -53,6 +52,7 @@ export function buildChartOption(rows: ChartRow[]): Record<string, unknown> {
     },
     xAxis: {
       type: "category",
+      boundaryGap: false,
       data: rows.map((r) => formatMonthShort(r.month)),
       axisTick: { show: false },
       axisLine: { lineStyle: { color: "#d8d0bf" } },
@@ -64,15 +64,17 @@ export function buildChartOption(rows: ChartRow[]): Record<string, unknown> {
     ],
     series: SERIES.map((s) => ({
       name: s.name,
-      type: "bar",
+      type: "line",
       yAxisIndex: s.axis,
-      barGap: "0%",
-      barCategoryGap: "30%",
+      smooth: 0.25,
+      symbol: "circle",
+      symbolSize: 7,
+      connectNulls: false,
+      // Штуки — пунктиром: у них своя (правая) шкала.
+      lineStyle: { width: s.axis === 1 ? 2 : 3, type: s.axis === 1 ? "dashed" : "solid", color: s.color },
       itemStyle: { color: s.color },
-      data: rows.map((r) => {
-        const v = r[s.key];
-        return { value: v, itemStyle: { color: v !== null && v < 0 ? NEGATIVE : s.color, borderRadius: [3, 3, 0, 0] } };
-      })
+      emphasis: { focus: "series" },
+      data: rows.map((r) => r[s.key])
     }))
   };
 }
